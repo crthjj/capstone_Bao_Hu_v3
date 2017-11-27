@@ -1,6 +1,7 @@
 #!/usr/bin/python3
-from Map import point,carmessage
+from Map import point,carstatus
 from Device import Car,Light
+from copy import deepcopy
 import time
 import os
 
@@ -12,8 +13,9 @@ class trafficSimulator():
         self.sleepInterval = sleepInt
         self.carList = []
         self.lightList = []
-        self.carMessageBuf = []
+        self.carStatusBuff = []
         self.simulatorMap = [ [ point() for i in range(msize)] for i in range(msize) ]
+        self.carSightRange = 3
 
         for i in range(msize):
             for j in range(msize):
@@ -53,15 +55,19 @@ class trafficSimulator():
         #def __init__(self,x,y,devid,maxv,destx,desty,trafficmap):
         self.carList.append(Car(6,2,0,3,11,27,self.simulatorMap))
         self.simulatorMap[6][2].addCarID(0)
+        self.carStatusBuff.append(carstatus(0,6,2))
 
         self.carList.append(Car(10,23,1,3,15,8,self.simulatorMap))
         self.simulatorMap[10][23].addCarID(1)
+        self.carStatusBuff.append(carstatus(1,10,23))
 
         self.carList.append(Car(16,18,2,3,1,5,self.simulatorMap))
         self.simulatorMap[16][18].addCarID(2)
+        self.carStatusBuff.append(carstatus(2,16,18))
 
         self.carList.append(Car(20,12,3,3,20,23,self.simulatorMap))
         self.simulatorMap[20][12].addCarID(3)
+        self.carStatusBuff.append(carstatus(3,20,12))
 
     def printMap(self):
         os.system('clear')
@@ -97,43 +103,83 @@ class trafficSimulator():
         print ('-----------------------')
         for c in self.carList:
             print ("Car ",c.getDeviceID()," is at ","(",c.getPosX(),",",c.getPosY(),")")
+
+    def checkCycleAndPosition(self,carid):
+        myX = -1
+        myY = -1
+        #print ("In checkCycleAndPosition, carid is",carid)
+        for s in self.carStatusBuff:
+            if s.getStatusCarDevID()==carid:
+                myX = s.getStatusCarPosX()
+                myY = s.getStatusCarPosY()
+                break
+        if myX==-1 or myY==-1:
+            print ("Invalid Car ID, return from check cycle and position.")
+            return
+        candp = []
+        candp.append(self.currentCycle)
+        candp.append(myX)
+        candp.append(myY)
+        return candp
+
+    def lookAround(self,carid):
+        myX = -1
+        myY = -1
+        for s in self.carStatusBuff:
+            if s.getStatusCarDevID()==carid:
+                myX = s.getStatusCarPosX()
+                myY = s.getStatusCarPosY()
+                break
+        if myX==-1 or myY==-1:
+            print ("Invalid Car ID, return from lookaround.")
+            return
+        tempStatusBuff = []
+        tempDirec = self.simulatorMap[myX][myY].getRoadDirecs()
+        for s in self.carStatusBuff:
+            tempStatusX = s.getStatusCarPosX()
+            tempStatusY = s.getStatusCarPosY()
+            sr = self.carSightRange
+            if tempDirec[0]==0:
+                if tempStatusY>=myY-sr and tempStatusY<=myY+sr and tempStatusX>=myX-sr:
+                    tempStatusBuff.append(s)
+            elif tempDirec[0]==1:
+                if tempStatusX>=myX-sr and tempStatusX<=myX+sr and tempStatusY<=myY+sr:
+                    tempStatusBuff.append(s)
+            elif tempDirec[0]==2:
+                if tempStatusY>=myY-sr and tempStatusY<=myY+sr and tempStatusX<=myX+sr:
+                    tempStatusBuff.append(s)
+            elif tempDirec[0]==3:
+                if tempStatusX>=myX-sr and tempStatusX<=myX+sr and tempStatusY>=myY-sr:
+                    tempStatusBuff.append(s)
+            else:
+                print ("Error in looking around.")
+        return tempStatusBuff
+
     def startSimulation(self):
         self.buildMap()
         self.createLights()
         self.createCars()
         while self.currentCycle<self.maxCycle:
             self.printMap()
-            self.carMessageBuf.clear()
+
+            tempStatusList = []
             for c in self.carList:
-                self.carMessageBuf.append(c.sendMsg())
-            for c in self.carList:
-                tempMsgBuff = []
-                tempDirec = self.simulatorMap[c.getPosX()][c.getPosY()].getRoadDirecs()
-                for msg in self.carMessageBuf:
-                    tempMsgX = msg.getMsgCarPosX()
-                    tempMsgY = msg.getMsgCarPosY()
-                    mv = c.getMaxVelocity()
-                    if tempDirec[0]==0:
-                        if tempMsgY>=c.getPosY()-mv and tempMsgY<=c.getPosY()+mv and tempMsgX>=c.getPosX()-mv:
-                            tempMsgBuff.append(msg)
-                    elif tempDirec[0]==1:
-                        if tempMsgX>=c.getPosX()-mv and tempMsgX<=c.getPosX()+mv and tempMsgY<=c.getPosY()+mv:
-                            tempMsgBuff.append(msg)
-                    elif tempDirec[0]==2:
-                        if tempMsgY>=c.getPosY()-mv and tempMsgY<=c.getPosY()+mv and tempMsgX<=c.getPosX()+mv:
-                            tempMsgBuff.append(msg)
-                    elif tempDirec[0]==3:
-                        if tempMsgX>=c.getPosX()-mv and tempMsgX<=c.getPosX()+mv and tempMsgY>=c.getPosY()-mv:
-                            tempMsgBuff.append(msg)
-                    else:
-                        print ("Error in receiving message.")
-                c.receiveMsg(tempMsgBuff,self.currentCycle)
+                temps = c.carUpdate(self)
+                tempStatusList.append(temps)
+            self.carStatusBuff.clear()
+            self.carStatusBuff = deepcopy(tempStatusList)
+
             for i in range(self.mapSize):
                 for j in range(self.mapSize):
                     self.simulatorMap[i][j].clearCarIDs()
-            for c in self.carList:
-                if c.checkIfArrive()==0:
-                    self.simulatorMap[c.getPosX()][c.getPosY()].addCarID(c.getDeviceID())
+            for s in self.carStatusBuff:
+                cx = s.getStatusCarPosX()
+                cy = s.getStatusCarPosY()
+                for c in self.carList:
+                    if s.getStatusCarDevID()==c.getDeviceID():
+                        if c.checkIfArrive()==0:
+                            self.simulatorMap[cx][cy].addCarID(s.getStatusCarDevID())
+                        break
 
             self.currentCycle+=1
             time.sleep(self.sleepInterval)

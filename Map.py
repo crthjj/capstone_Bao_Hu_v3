@@ -40,18 +40,18 @@ class point():
     def clearRoadDirecs(self):
         self.__roadDirecs.clear()
 
-class carmessage():
+class carstatus():
 
     def __init__(self,carid,carx,cary):
         self.__carID = carid
         self.__carX = carx
         self.__carY = cary
 
-    def getMsgCarID(self):
+    def getStatusCarDevID(self):
         return self.__carID
-    def getMsgCarPosX(self):
+    def getStatusCarPosX(self):
         return self.__carX
-    def getMsgCarPosY(self):
+    def getStatusCarPosY(self):
         return self.__carY
 
 #end

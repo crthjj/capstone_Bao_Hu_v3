@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import json
 from Map import point
-from Map import carmessage
+from Map import carstatus
 from copy import deepcopy
 
 directionStr = ['North','East','South','West']
@@ -55,7 +55,7 @@ class Car(trafficDevice):
         self.__destPosY = desty
         self.__arriveDest = 0
         self.__carPath = []#item is string as (x,y)
-        self.__msgList = []
+        self.__statusList = []
         self.__curPosInPath = 0
         self.__curCycle = -1
         self.__myMap = deepcopy(trafficmap)#Only contains the blank map, receives message from other cars within its sight.
@@ -152,38 +152,39 @@ class Car(trafficDevice):
         else:
             #horizaontal is red, vertical is green
             return 0
-    def sendMsg(self):
-        #print ("I am Car {0}".format(self.getDeviceID()))
-        #print ("My path is:")
-        #print (self.__carPath)
-        #print ("I am sending message")
-        #print ("")
-        msg = carmessage(self.getDeviceID(),self.getPosX(),self.getPosY())
-        return msg
 
-    def receiveMsg(self,msglist,curcycle):
-        self.__curCycle = curcycle
-        for msg in self.__msgList:
-            carx = msg.getMsgCarPosX()
-            cary = msg.getMsgCarPosY()
+    def carUpdate(self,simulatorIns):
+        candp = simulatorIns.checkCycleAndPosition(self.getDeviceID())
+        #print (candp)
+        self.__curCycle = candp[0]
+        self.setPosX(candp[1])
+        self.setPosY(candp[2])
+
+        for s in self.__statusList:
+            carx = s.getStatusCarPosX()
+            cary = s.getStatusCarPosY()
             self.__myMap[carx][cary].clearCarIDs()
-        self.__msgList.clear()
-        self.__msgList = deepcopy(msglist)
-        for msg in self.__msgList:
-            carx = msg.getMsgCarPosX()
-            cary = msg.getMsgCarPosY()
-            self.__myMap[carx][cary].addCarID(msg.getMsgCarID())
+        self.__statusList.clear()
+
+        sList = simulatorIns.lookAround(self.getDeviceID())
+        self.__statusList = deepcopy(sList)
+
+        for s in self.__statusList:
+            carx = s.getStatusCarPosX()
+            cary = s.getStatusCarPosY()
+            self.__myMap[carx][cary].addCarID(s.getStatusCarDevID())
         #print ("I am Car {0}".format(self.getDeviceID()))
         #print ("My path is:")
         #print (self.__carPath)
-        self.__carDecision()
+        myDecision = self.__carDecision()
+        return myDecision
 
     def dealCrash(self):
         self.__ifCrash = 1
 
     def __carDecision(self):
         if self.__arriveDest==1 or self.__ifCrash==1 or self.__ifDestReachable==0:
-            return
+            return carstatus(self.getDeviceID(),self.getPosX(),self.getPosY())
         for i in range(1,self.__maxVelocity+1):
             if self.__curPosInPath+i>=len(self.__carPath):
                 break
@@ -265,14 +266,14 @@ class Car(trafficDevice):
         newPosOfComma = int(newCordinateStr.index(','))
         newPosX = (int)(newCordinateStr[0:newPosOfComma])
         newPosY = (int)(newCordinateStr[newPosOfComma+1:len(newCordinateStr)])
-        self.setPosX(newPosX)
-        self.setPosY(newPosY)
         #print ("I am Car {0}, my velocity is {1}, I am goint to ({2},{3})".format(self.getDeviceID(),self.__velocity,newPosX,newPosY))
         #print ("My path is:")
         #print (self.__carPath)
+        myDecision = carstatus(self.getDeviceID(),newPosX,newPosY)
         if newPosX==self.__destPosX and newPosY==self.__destPosY:
             self.__arriveDest = 1
             print ("Car {0} has arrived.".format(self.getDeviceID()))
+        return myDecision
 
 
 
