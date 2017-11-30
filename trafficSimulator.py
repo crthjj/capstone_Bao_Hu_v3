@@ -1,6 +1,6 @@
 #!/usr/bin/python3
-from Map import point,carstatus
-from Device import Car,Light
+from Map import point,carstatus,carmovement
+from Device import Car,Light,Badcar
 from copy import deepcopy
 import time
 import os
@@ -11,9 +11,10 @@ class trafficSimulator():
         self.maxCycle = maxc
         self.mapSize = msize
         self.sleepInterval = sleepInt
-        self.carList = []
+        self.deviceList = []
         self.lightList = []
-        self.carStatusBuff = []
+        self.deviceStatusList = []
+        self.tempStatusList = []
         self.simulatorMap = [ [ point() for i in range(msize)] for i in range(msize) ]
         self.carSightRange = 3
 
@@ -53,21 +54,34 @@ class trafficSimulator():
                     self.lightList.append(Light(i,j,lightnum,6,self.simulatorMap))
     def createCars(self):
         #def __init__(self,x,y,devid,maxv,destx,desty,trafficmap):
-        self.carList.append(Car(6,2,0,3,11,27,self.simulatorMap))
+        self.deviceList.append(Car(6,2,0,3,11,27,self.simulatorMap))
         self.simulatorMap[6][2].addCarID(0)
-        self.carStatusBuff.append(carstatus(0,6,2))
+        self.deviceStatusList.append(carstatus(0,6,2))
 
-        self.carList.append(Car(10,23,1,3,15,8,self.simulatorMap))
+        self.deviceList.append(Car(10,23,1,3,15,8,self.simulatorMap))
         self.simulatorMap[10][23].addCarID(1)
-        self.carStatusBuff.append(carstatus(1,10,23))
+        self.deviceStatusList.append(carstatus(1,10,23))
 
-        self.carList.append(Car(16,18,2,3,1,5,self.simulatorMap))
+        self.deviceList.append(Car(16,18,2,3,1,5,self.simulatorMap))
         self.simulatorMap[16][18].addCarID(2)
-        self.carStatusBuff.append(carstatus(2,16,18))
+        self.deviceStatusList.append(carstatus(2,16,18))
 
-        self.carList.append(Car(20,12,3,3,20,23,self.simulatorMap))
+        self.deviceList.append(Car(20,12,3,3,20,23,self.simulatorMap))
         self.simulatorMap[20][12].addCarID(3)
-        self.carStatusBuff.append(carstatus(3,20,12))
+        self.deviceStatusList.append(carstatus(3,20,12))
+
+    def createCarsTest(self):
+        self.deviceList.append(Car(6,2,0,3,11,27,self.simulatorMap))
+        self.simulatorMap[6][2].addCarID(0)
+        self.deviceStatusList.append(carstatus(0,6,2))
+
+        self.deviceList.append(Badcar(4,2,1,3,11,27,self.simulatorMap))
+        self.simulatorMap[4][2].addCarID(1)
+        self.deviceStatusList.append(carstatus(1,4,2))
+
+        self.deviceList.append(Car(16,18,2,3,1,5,self.simulatorMap))
+        self.simulatorMap[16][18].addCarID(2)
+        self.deviceStatusList.append(carstatus(2,16,18))
 
     def printMap(self):
         os.system('clear')
@@ -84,8 +98,6 @@ class trafficSimulator():
                 elif len(_carid)>1:
                     print ("Boom".rjust(4),end="")
                     self.simulatorMap[i][j].clearRoadDirecs()
-                    for c in _carid:
-                        c.dealCrash()
                 elif _lightid!=-1:
                     if self.lightList[_lightid].getSignal(self.currentCycle)==0:
                         print ("||".rjust(4), end="")
@@ -101,14 +113,14 @@ class trafficSimulator():
         print ('-----------------------')
         print ('cycle:',self.currentCycle)
         print ('-----------------------')
-        for c in self.carList:
+        for c in self.deviceList:
             print ("Car ",c.getDeviceID()," is at ","(",c.getPosX(),",",c.getPosY(),")")
 
     def checkCycleAndPosition(self,carid):
         myX = -1
         myY = -1
         #print ("In checkCycleAndPosition, carid is",carid)
-        for s in self.carStatusBuff:
+        for s in self.deviceStatusList:
             if s.getStatusCarDevID()==carid:
                 myX = s.getStatusCarPosX()
                 myY = s.getStatusCarPosY()
@@ -125,7 +137,7 @@ class trafficSimulator():
     def lookAround(self,carid):
         myX = -1
         myY = -1
-        for s in self.carStatusBuff:
+        for s in self.deviceStatusList:
             if s.getStatusCarDevID()==carid:
                 myX = s.getStatusCarPosX()
                 myY = s.getStatusCarPosY()
@@ -135,7 +147,9 @@ class trafficSimulator():
             return
         tempStatusBuff = []
         tempDirec = self.simulatorMap[myX][myY].getRoadDirecs()
-        for s in self.carStatusBuff:
+        if len(tempDirec)==0:
+            return []
+        for s in self.deviceStatusList:
             tempStatusX = s.getStatusCarPosX()
             tempStatusY = s.getStatusCarPosY()
             sr = self.carSightRange
@@ -154,32 +168,113 @@ class trafficSimulator():
             else:
                 print ("Error in looking around.")
         return tempStatusBuff
+    def clearDeviceOnMap(self):
+        for i in range(self.mapSize):
+            for j in range(self.mapSize):
+                self.simulatorMap[i][j].clearCarIDs()
+        self.tempStatusList.clear()
+    def updateStatusList(self):
+        self.deviceStatusList.clear()
+        self.deviceStatusList = deepcopy(self.tempStatusList)
+    def crashDevice(self,crashid):
+        for d in self.deviceList:
+            if d.getDeviceID()==crashid:
+                d.dealCrash()
+                break
+    def applyMovement(self,movement,device):
+        if movement is None:
+            return
+
+        stepList = movement.getMovement()
+        devID = movement.getMovementCarID()
+        curX = -1
+        curY = -1
+        for s in self.deviceStatusList:
+            if devID==s.getStatusCarDevID():
+                curX = s.getStatusCarPosX()
+                curY = s.getStatusCarPosY()
+                break
+        if curX==-1 or curY==-1:
+            print ("Apply movement fail, no such device.")
+            return
+        moveX = curX
+        moveY = curY
+        for s in stepList:
+            #print ("step is:",s)
+            if s==0:
+                if len(self.simulatorMap[moveX-1][moveY].getRoadDirecs())==0:
+                    print ("Device {0} movement illegal.".format(devID))
+                    break
+                else:
+                    moveX = moveX-1
+                    if len(self.simulatorMap[moveX][moveY].getCarIDs())>0:
+                        device.dealCrash()
+                        for ids in self.simulatorMap[moveX][moveY].getCarIDs():
+                            print ("in simulator, crash device ",ids)
+                            self.crashDevice(ids)
+                        break
+            elif s==1:
+                if len(self.simulatorMap[moveX][moveY+1].getRoadDirecs())==0:
+                    print ("Device {0} movement illegal.".format(devID))
+                    break
+                else:
+                    moveY = moveY+1
+                    if len(self.simulatorMap[moveX][moveY].getCarIDs())>0:
+                        device.dealCrash()
+                        for ids in self.simulatorMap[moveX][moveY].getCarIDs():
+                            print ("in simulator, crash device ",ids)
+                            self.crashDevice(ids)
+                        break
+            elif s==2:
+                if len(self.simulatorMap[moveX+1][moveY].getRoadDirecs())==0:
+                    print ("Device {0} movement illegal.".format(devID))
+                    break
+                else:
+                    moveX = moveX+1
+                    if len(self.simulatorMap[moveX][moveY].getCarIDs())>0:
+                        device.dealCrash()
+                        for ids in self.simulatorMap[moveX][moveY].getCarIDs():
+                            print ("in simulator, crash device ",ids)
+                            self.crashDevice(ids)
+                        break
+            elif s==3:
+                if len(self.simulatorMap[moveX][moveY-1].getRoadDirecs())==0:
+                    print ("Device {0} movement illegal.".format(devID))
+                    break
+                else:
+                    moveY = moveY-1
+                    if len(self.simulatorMap[moveX][moveY].getCarIDs())>0:
+                        device.dealCrash()
+                        for ids in self.simulatorMap[moveX][moveY].getCarIDs():
+                            print ("in simulator, crash device ",ids)
+                            self.crashDevice(ids)
+                        break
+            else:
+                print ("Illegal movement")
+                break
+        if moveX==device.getDestPosX() and moveY==device.getDestPosY():
+            device.dealArrive()
+            print ("Device {0} has arrived.".format(devID))
+        else:
+            self.simulatorMap[moveX][moveY].addCarID(devID)
+            self.tempStatusList.append(carstatus(devID,moveX,moveY))
 
     def startSimulation(self):
         self.buildMap()
         self.createLights()
-        self.createCars()
+        #self.createCars()
+        self.createCarsTest()
         while self.currentCycle<self.maxCycle:
             self.printMap()
 
-            tempStatusList = []
-            for c in self.carList:
-                temps = c.carUpdate(self)
-                tempStatusList.append(temps)
-            self.carStatusBuff.clear()
-            self.carStatusBuff = deepcopy(tempStatusList)
+            self.clearDeviceOnMap()
 
-            for i in range(self.mapSize):
-                for j in range(self.mapSize):
-                    self.simulatorMap[i][j].clearCarIDs()
-            for s in self.carStatusBuff:
-                cx = s.getStatusCarPosX()
-                cy = s.getStatusCarPosY()
-                for c in self.carList:
-                    if s.getStatusCarDevID()==c.getDeviceID():
-                        if c.checkIfArrive()==0:
-                            self.simulatorMap[cx][cy].addCarID(s.getStatusCarDevID())
-                        break
+            for d in self.deviceList:
+                #print ("device {0} updating".format(d.getDeviceID()))
+                tempMovement = d.Update(self)
+                self.applyMovement(tempMovement,d)
+
+            self.updateStatusList()
 
             self.currentCycle+=1
             time.sleep(self.sleepInterval)

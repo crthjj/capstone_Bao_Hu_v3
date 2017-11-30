@@ -1,3 +1,4 @@
+from copy import deepcopy
 
 class point():
 
@@ -53,5 +54,17 @@ class carstatus():
         return self.__carX
     def getStatusCarPosY(self):
         return self.__carY
+
+class carmovement():
+
+    def __init__(self,carid,m):
+        self.__carID = carid
+        self.__movement = deepcopy(m)
+    def getMovement(self):
+        return self.__movement
+    def getMovementCarID(self):
+        return self.__carID
+    def addStep(self,s):
+        self.__movement.append(s)
 
 #end
