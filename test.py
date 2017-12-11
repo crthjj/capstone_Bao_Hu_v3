@@ -1,6 +1,5 @@
 #!/usr/bin/python3
 import time
-from Device import Car,Light
 from Map import point
 from trafficSimulator import trafficSimulator
 import os

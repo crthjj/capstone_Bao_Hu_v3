@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 from Map import point,carstatus,carmovement
-from Device import Car,Light,Badcar
+from Device import Car,Light,Badcar,GPSCar
 from copy import deepcopy
+from GPS import GPSMessage,GPSServer,GPSListener
 import time
 import os
 
@@ -17,12 +18,14 @@ class trafficSimulator():
         self.tempStatusList = []
         self.simulatorMap = [ [ point() for i in range(msize)] for i in range(msize) ]
         self.carSightRange = 3
+        self.simuGPSServer = GPSServer(self.mapSize)
 
         for i in range(msize):
             for j in range(msize):
                 self.simulatorMap[i][j].setCordinate(i,j)
 
     def buildMap(self):
+        '''
         self.addRoad(1,0,1,30,3)
         self.addRoad(7,2,7,23,3)
         self.addRoad(13,0,13,30,1)
@@ -38,6 +41,13 @@ class trafficSimulator():
         self.addRoad(0,23,30,23,2)
         self.addRoad(18,25,30,25,2)
         self.addRoad(1,27,18,27,0)
+        '''
+        self.addRoad(3,1,3,4,1)
+        self.addRoad(3,2,14,2,0)
+        self.addRoad(8,0,8,4,1)
+        self.addRoad(5,4,8,4,0)
+        self.addRoad(5,1,5,4,3)
+        self.addRoad(11,1,11,4,1)
     def addRoad(self,startx,starty,endx,endy,d):
         if startx==endx:
             for i in range(starty,endy+1):
@@ -51,9 +61,10 @@ class trafficSimulator():
         for i in range(self.mapSize):
             for j in range(self.mapSize):
                 if self.simulatorMap[i][j].getRoadDirecNum()>1:
-                    self.lightList.append(Light(i,j,lightnum,6,self.simulatorMap))
+                    self.lightList.append(Light(i,j,lightnum,4,self.simulatorMap))
     def createCars(self):
         #def __init__(self,x,y,devid,maxv,destx,desty,trafficmap):
+        '''
         self.deviceList.append(Car(6,2,0,3,11,27,self.simulatorMap))
         self.simulatorMap[6][2].addCarID(0)
         self.deviceStatusList.append(carstatus(0,6,2))
@@ -69,6 +80,14 @@ class trafficSimulator():
         self.deviceList.append(Car(20,12,3,3,20,23,self.simulatorMap))
         self.simulatorMap[20][12].addCarID(3)
         self.deviceStatusList.append(carstatus(3,20,12))
+        '''
+        self.deviceList.append(GPSCar(13,2,0,3,3,4,self.simulatorMap))
+        self.simulatorMap[13][2].addCarID(0)
+        self.deviceStatusList.append(carstatus(0,13,2))
+
+        self.deviceList.append(Car(14,2,1,3,3,3,self.simulatorMap))
+        self.simulatorMap[14][2].addCarID(1)
+        self.deviceStatusList.append(carstatus(1,14,2))
 
     def createCarsTest(self):
         self.deviceList.append(Car(6,2,0,3,11,27,self.simulatorMap))
@@ -96,8 +115,7 @@ class trafficSimulator():
                 if len(_carid)==1:
                     print ("<{0}>".format(_carid[0]).rjust(4), end="")
                 elif len(_carid)>1:
-                    print ("Boom".rjust(4),end="")
-                    self.simulatorMap[i][j].clearRoadDirecs()
+                    print ("B{0},{1}".format(_carid[0],_carid[1]).rjust(4),end="")
                 elif _lightid!=-1:
                     if self.lightList[_lightid].getSignal(self.currentCycle)==0:
                         print ("||".rjust(4), end="")
@@ -181,6 +199,9 @@ class trafficSimulator():
             if d.getDeviceID()==crashid:
                 d.dealCrash()
                 break
+    def feedGPSMessage(self,devid):
+        print ("Feed GPSMSG to device {0}".format(devid))
+        return self.simuGPSServer.GPSServerSendMessageTest()
     def applyMovement(self,movement,device):
         if movement is None:
             return
@@ -208,6 +229,7 @@ class trafficSimulator():
                 else:
                     moveX = moveX-1
                     if len(self.simulatorMap[moveX][moveY].getCarIDs())>0:
+                        self.simulatorMap[moveX][moveY].clearRoadDirecs()
                         device.dealCrash()
                         for ids in self.simulatorMap[moveX][moveY].getCarIDs():
                             print ("in simulator, crash device ",ids)
@@ -220,6 +242,7 @@ class trafficSimulator():
                 else:
                     moveY = moveY+1
                     if len(self.simulatorMap[moveX][moveY].getCarIDs())>0:
+                        self.simulatorMap[moveX][moveY].clearRoadDirecs()
                         device.dealCrash()
                         for ids in self.simulatorMap[moveX][moveY].getCarIDs():
                             print ("in simulator, crash device ",ids)
@@ -232,6 +255,7 @@ class trafficSimulator():
                 else:
                     moveX = moveX+1
                     if len(self.simulatorMap[moveX][moveY].getCarIDs())>0:
+                        self.simulatorMap[moveX][moveY].clearRoadDirecs()
                         device.dealCrash()
                         for ids in self.simulatorMap[moveX][moveY].getCarIDs():
                             print ("in simulator, crash device ",ids)
@@ -244,6 +268,7 @@ class trafficSimulator():
                 else:
                     moveY = moveY-1
                     if len(self.simulatorMap[moveX][moveY].getCarIDs())>0:
+                        self.simulatorMap[moveX][moveY].clearRoadDirecs()
                         device.dealCrash()
                         for ids in self.simulatorMap[moveX][moveY].getCarIDs():
                             print ("in simulator, crash device ",ids)
@@ -263,12 +288,17 @@ class trafficSimulator():
         self.buildMap()
         self.createLights()
         #self.createCars()
-        self.createCarsTest()
+        self.createCars()
         while self.currentCycle<self.maxCycle:
             self.printMap()
 
             self.clearDeviceOnMap()
-
+            if self.currentCycle==2:
+                self.simulatorMap[6][2].clearRoadDirecs()
+            #self.deviceStatusList is for this cycle
+            #send GPS message here
+            self.simuGPSServer.setGPSCycle(self.currentCycle)
+            self.simuGPSServer.constructGPSMap(self.simulatorMap)
             for d in self.deviceList:
                 #print ("device {0} updating".format(d.getDeviceID()))
                 tempMovement = d.Update(self)
