@@ -2,7 +2,7 @@
 import time
 from Map import point
 from trafficSimulator import trafficSimulator
-import os
+import os, asyncio
 
 mapsize = 31
 maxcycle = 50
@@ -28,4 +28,8 @@ car0 = car(0,1,0,3,0,3,trafficMap)
 '''
 
 s = trafficSimulator(mapsize,maxcycle,sleepinterval)
-s.startSimulation()
+
+from playground.common.logging import EnablePresetLogging, PRESET_DEBUG
+EnablePresetLogging(PRESET_DEBUG)
+asyncio.get_event_loop().call_soon(s.startSimulation)
+asyncio.get_event_loop().run_forever()

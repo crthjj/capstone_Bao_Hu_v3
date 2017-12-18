@@ -1,8 +1,12 @@
 from copy import deepcopy
 from Map import point
 
-import playground, asyncio
-from playground.network.packet.fieldtypes import UINT32, STRING, LIST, BUFFER
+import playground, asyncio, random, hashlib
+from playground.network.packet import PacketType
+from playground.network.packet.fieldtypes import UINT32, LIST, BUFFER, STRING
+
+GPS_BROADCAST_ADDRESS = "255.255.255.255"
+SHARED_KEY = b"This is a shared key"
 
 class GPSNetworkMessage(playground.network.packet.PacketType):
     DEFINITION_IDENTIFIER = "simulator.traffic.gps_message"
@@ -23,11 +27,21 @@ class GPSMessage():
 
 class GPSListener(asyncio.Protocol):
     def __init__(self):
+        print("Create GPSListener")
         self.unpacker = GPSNetworkMessage.Deserializer()
         self.GPSMsgQueue = []
+    def connection_made(self, transport):
+        print("{} Listener connected tp {}".format(transport.get_extra_info("hostname"), transport.get_extra_info("peername")))
+        self.transport=transport
     def data_received(self, data):
         self.unpacker.update(data)
-        for pakcet in self.unpacker.nextPackets():
+        for packet in self.unpacker.nextPackets():
+            sig = packet.Signature
+            packet.Signature = b""
+            checkSig = hashlib.sha256(packet.__serialize__()+SHARED_KEY).digest()
+            if sig != checkSig:
+                print ("No Signature match. Ignoring")
+                continue
             m = GPSMessage(packet.Timestamp, packet.Map)
             self.GPSMsgQueue.append(m)
         return
@@ -44,9 +58,11 @@ class GPSSender(asyncio.Protocol):
     def connection_made(self, transport):
         self.transport = transport
 
-    def sendGpsMessage(self, m):
+    def sendGpsMessage(self, m, doSig):
         if not self.transport: raise Exception("Not yet connected!")
         networkMessage = GPSNetworkMessage(Timestamp=m.GPSMessageCycle, Map=m.GPSMessageMap, Signature=b"")
+        if doSig:
+            networkMessage.Signature = hashlib.sha256(networkMessage.__serialize__()+SHARED_KEY).digest()
         self.transport.write(networkMessage.__serialize__())
 
 class GPSServer():
@@ -55,25 +71,44 @@ class GPSServer():
         self.__GPSCarList= []
         self.__GPSCarConnections = {}
         self.__GPSMap = [ [ "" for i in range(s)] for i in range(s) ]
+        self.__BadGPSMap = [ [ "" for i in range(s)] for i in range(s) ]
         self.__GPSCurrentCycle = 0
+        self.__gpsSubscribers = {}
+    def addGpsSubscriber(self, carId):
+        txProtocol = GPSSender()
+        self.__gpsSubscribers[carId] = txProtocol
+        return txProtocol
     def constructGPSMap(self,pointmap):
         for i in range(self.__GPSMapSize):
             for j in range(self.__GPSMapSize):
                 self.__GPSMap[i][j] = ""
-                for direcs in pointmap[i][j].getRoadDirecs():
-                    self.__GPSMap[i][j] += str(direcs)
+                self.__BadGPSMap[i][j] = ""
+                direcs = pointmap[i][j].getRoadDirecs()
+                self.__GPSMap[i][j] = "".join([str(d) for d in direcs])
     def GPSServerSendMessageTest(self):
         return GPSMessage(self.__GPSCurrentCycle,self.__GPSMap)
+    def GPSServerSendConfusingMessageTest(self):
+        return GPSMessage(self.__GPSCurrentCycle, self.__BadGPSMap)
     def transmitCycle(self):
         # for each car in list
         # get address
+        gpsMessage = self.GPSServerSendMessageTest()
+        badGpsMessage = self.GPSServerSendConfusingMessageTest()
+        for carId in self.__GPSCarList:
+            if not carId in self.__gpsSubscribers:
+                continue
+            print("send gps message to car ID {}".format(carId))
+            self.__gpsSubscribers[carId].sendGpsMessage(gpsMessage, doSig=True)
+            self.__gpsSubscribers[carId].sendGpsMessage(badGpsMessage, doSig=False)
     def getGPSCarlist(self):
         return self.__GPSCarList
-    def addCarToList(self,carid, address, port):
+    def addCarToList(self,carid):
         self.__GPSCarList.append(carid)
         c = playground.getConnector()
-        c.create_playground_conenction(lambda: GPSSender(), address, port)
+        coro = c.create_playground_connection(lambda: self.addGpsSubscriber(carid), GPS_BROADCAST_ADDRESS, 100+carid)
+        asyncio.get_event_loop().create_task(coro)
     def setGPSCycle(self,c):
         self.__GPSCurrentCycle = c
+        self.transmitCycle()
     def getGPSCycle(self):
         return self.__GPSCurrentCycle

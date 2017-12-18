@@ -4,7 +4,7 @@ from Device import Car,Light,Badcar,GPSCar
 from copy import deepcopy
 from GPS import GPSMessage,GPSServer,GPSListener
 import time
-import os
+import os, asyncio
 
 class trafficSimulator():
     def __init__(self,msize,maxc,sleepInt):
@@ -43,7 +43,7 @@ class trafficSimulator():
         self.addRoad(1,27,18,27,0)
         '''
         self.addRoad(3,1,3,4,1)
-        self.addRoad(3,2,14,2,0)
+        self.addRoad(3,2,15,2,0)
         self.addRoad(8,0,8,4,1)
         self.addRoad(5,4,8,4,0)
         self.addRoad(5,1,5,4,3)
@@ -84,10 +84,16 @@ class trafficSimulator():
         self.deviceList.append(GPSCar(13,2,0,3,3,4,self.simulatorMap))
         self.simulatorMap[13][2].addCarID(0)
         self.deviceStatusList.append(carstatus(0,13,2))
+        self.simuGPSServer.addCarToList(self.deviceList[-1].getDeviceID())
 
         self.deviceList.append(Car(14,2,1,3,3,3,self.simulatorMap))
         self.simulatorMap[14][2].addCarID(1)
         self.deviceStatusList.append(carstatus(1,14,2))
+        
+        #self.deviceList.append(GPSCar(15,2,2,3,3,4,self.simulatorMap))
+        #self.simulatorMap[15][2].addCarID(2)
+        #self.deviceStatusList.append(carstatus(2,15,2))
+        #self.simuGPSServer.addCarToList(self.deviceList[-1].getDeviceID())
 
     def createCarsTest(self):
         self.deviceList.append(Car(6,2,0,3,11,27,self.simulatorMap))
@@ -289,7 +295,11 @@ class trafficSimulator():
         self.createLights()
         #self.createCars()
         self.createCars()
-        while self.currentCycle<self.maxCycle:
+        print("Starting simulation")
+        asyncio.get_event_loop().call_later(self.sleepInterval, self.cycle)
+        
+    def cycle(self):
+        if self.currentCycle<self.maxCycle:
             self.printMap()
 
             self.clearDeviceOnMap()
@@ -307,7 +317,8 @@ class trafficSimulator():
             self.updateStatusList()
 
             self.currentCycle+=1
-            time.sleep(self.sleepInterval)
+            #time.sleep(self.sleepInterval)
+            asyncio.get_event_loop().call_later(self.sleepInterval, self.cycle)
 
 
 

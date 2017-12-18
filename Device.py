@@ -2,17 +2,13 @@
 import json
 from Map import point
 from Map import carstatus,carmovement
-from GPS import GPSListener,GPSMessage
+from GPS import GPSListener,GPSMessage, GPSNetworkMessage, GPSListener 
 from copy import deepcopy
 
 import playground, asyncio
 
 directionStr = ['North','East','South','West']
 
-class GpsMessage()
-
-class GpsReceiver(asyncio.Protocol):
-    def data_received()
 
 class trafficDevice():
 
@@ -522,7 +518,12 @@ class GPSCar(trafficDevice):
         self.__ifCrash = 0
         self.__ifDestReachable = 1
         self.__networkType = "GPS"
-        self.__carGPSListener = GPSListener()
+        
+        self.__gpsReceiver = GPSListener()
+        print("Creating playground server fro device ID {}".format(devid))
+        coro = playground.getConnector().create_playground_server(lambda: self.__gpsReceiver, host="255.255.255.255", sourcePort=100+devid)
+        asyncio.get_event_loop().create_task(coro)
+        #self.__carGPSListener = GPSListener()
 
     def __findCarPath(self):
         x = self.getPosX()
@@ -635,11 +636,13 @@ class GPSCar(trafficDevice):
             return carmovement(self.getDeviceID(),[])
 
         #GPSListener work
-        self.__carGPSListener.GPSMsgQueue.clear()
-        newMsg = simulatorIns.feedGPSMessage(self.getDeviceID())
-        self.__carGPSListener.receiveGPSMessageTest(newMsg,self.__curCycle)
-        if len(self.__carGPSListener.GPSMsgQueue)>0:
+        #self.__carGPSListener.GPSMsgQueue.clear()
+        #newMsg = simulatorIns.feedGPSMessage(self.getDeviceID())
+        #self.__carGPSListener.receiveGPSMessageTest(newMsg,self.__curCycle)
+        if len(self.__gpsReceiver.GPSMsgQueue)>0:
+            print("Car {} has a GPS message!".format(self.getDeviceID()))
             self.dealGPSMessage()
+        
 
         if len(self.__carPath)==0:
             return carmovement(self.getDeviceID(),[])
@@ -676,7 +679,8 @@ class GPSCar(trafficDevice):
         self.__arriveDest = 1
     def dealGPSMessage(self):
         print ("car {0} dealing GPSMSG".format(self.getDeviceID()))
-        _gpsmsg = self.__carGPSListener.GPSMsgQueue[0]
+        _gpsmsg = self.__gpsReceiver.GPSMsgQueue[-1]#self.__carGPSListener.GPSMsgQueue[0]
+        self.__gpsReceiver.GPSMsgQueue = []
         _gpsmap = _gpsmsg.GPSMessageMap
         ismapchange = False
         for i in range(self.__curPosInPath,len(self.__carPath)):
@@ -688,7 +692,7 @@ class GPSCar(trafficDevice):
                 print ("Map change")
                 ismapchange = True
                 break
-        if ismapchange==True:
+        if True:#if ismapchange==True:
             for i in range(self.__mapSize):
                 for j in range(self.__mapSize):
                     self.__myMap[i][j].clearRoadDirecs()
