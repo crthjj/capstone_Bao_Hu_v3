@@ -42,12 +42,13 @@ class trafficSimulator():
         self.addRoad(18,25,30,25,2)
         self.addRoad(1,27,18,27,0)
         '''
-        self.addRoad(3,1,3,4,1)
-        self.addRoad(3,2,15,2,0)
-        self.addRoad(8,0,8,4,1)
-        self.addRoad(5,4,8,4,0)
-        self.addRoad(5,1,5,4,3)
-        self.addRoad(11,1,11,4,1)
+        self.addRoad(3,1,3,10,1)
+        self.addRoad(1,5,20,5,0)
+        self.addRoad(7,1,7,8,3)
+        self.addRoad(7,8,12,8,0)
+        self.addRoad(12,1,12,8,1)
+        self.addRoad(15,1,15,10,1)
+
     def addRoad(self,startx,starty,endx,endy,d):
         if startx==endx:
             for i in range(starty,endy+1):
@@ -81,19 +82,19 @@ class trafficSimulator():
         self.simulatorMap[20][12].addCarID(3)
         self.deviceStatusList.append(carstatus(3,20,12))
         '''
-        self.deviceList.append(GPSCar(13,2,0,3,3,4,self.simulatorMap))
-        self.simulatorMap[13][2].addCarID(0)
-        self.deviceStatusList.append(carstatus(0,13,2))
+        self.deviceList.append(GPSCar(15,2,0,3,3,8,self.simulatorMap,0))
+        self.simulatorMap[15][2].addCarID(0)
+        self.deviceStatusList.append(carstatus(0,15,2))
         self.simuGPSServer.addCarToList(self.deviceList[-1].getDeviceID())
 
-        self.deviceList.append(Car(14,2,1,3,3,3,self.simulatorMap))
-        self.simulatorMap[14][2].addCarID(1)
-        self.deviceStatusList.append(carstatus(1,14,2))
-        
-        #self.deviceList.append(GPSCar(15,2,2,3,3,4,self.simulatorMap))
-        #self.simulatorMap[15][2].addCarID(2)
-        #self.deviceStatusList.append(carstatus(2,15,2))
-        #self.simuGPSServer.addCarToList(self.deviceList[-1].getDeviceID())
+        self.deviceList.append(Car(19,5,1,3,3,8,self.simulatorMap))
+        self.simulatorMap[19][5].addCarID(1)
+        self.deviceStatusList.append(carstatus(1,19,5))
+
+        self.deviceList.append(GPSCar(20,5,2,3,3,8,self.simulatorMap,1))
+        self.simulatorMap[20][5].addCarID(2)
+        self.deviceStatusList.append(carstatus(2,20,5))
+        self.simuGPSServer.addCarToList(self.deviceList[-1].getDeviceID())
 
     def createCarsTest(self):
         self.deviceList.append(Car(6,2,0,3,11,27,self.simulatorMap))
@@ -150,7 +151,7 @@ class trafficSimulator():
                 myY = s.getStatusCarPosY()
                 break
         if myX==-1 or myY==-1:
-            print ("Invalid Car ID, return from check cycle and position.")
+            #print ("Invalid Car ID, return from check cycle and position.")
             return
         candp = []
         candp.append(self.currentCycle)
@@ -167,7 +168,7 @@ class trafficSimulator():
                 myY = s.getStatusCarPosY()
                 break
         if myX==-1 or myY==-1:
-            print ("Invalid Car ID, return from lookaround.")
+            #print ("Invalid Car ID, return from lookaround.")
             return
         tempStatusBuff = []
         tempDirec = self.simulatorMap[myX][myY].getRoadDirecs()
@@ -206,7 +207,7 @@ class trafficSimulator():
                 d.dealCrash()
                 break
     def feedGPSMessage(self,devid):
-        print ("Feed GPSMSG to device {0}".format(devid))
+        #print ("Feed GPSMSG to device {0}".format(devid))
         return self.simuGPSServer.GPSServerSendMessageTest()
     def applyMovement(self,movement,device):
         if movement is None:
@@ -222,7 +223,7 @@ class trafficSimulator():
                 curY = s.getStatusCarPosY()
                 break
         if curX==-1 or curY==-1:
-            print ("Apply movement fail, no such device.")
+            #print ("Apply movement fail, no such device.")
             return
         moveX = curX
         moveY = curY
@@ -230,7 +231,7 @@ class trafficSimulator():
             #print ("step is:",s)
             if s==0:
                 if len(self.simulatorMap[moveX-1][moveY].getRoadDirecs())==0:
-                    print ("Device {0} movement illegal.".format(devID))
+                    #print ("Device {0} movement illegal.".format(devID))
                     break
                 else:
                     moveX = moveX-1
@@ -243,7 +244,7 @@ class trafficSimulator():
                         break
             elif s==1:
                 if len(self.simulatorMap[moveX][moveY+1].getRoadDirecs())==0:
-                    print ("Device {0} movement illegal.".format(devID))
+                    #print ("Device {0} movement illegal.".format(devID))
                     break
                 else:
                     moveY = moveY+1
@@ -256,7 +257,7 @@ class trafficSimulator():
                         break
             elif s==2:
                 if len(self.simulatorMap[moveX+1][moveY].getRoadDirecs())==0:
-                    print ("Device {0} movement illegal.".format(devID))
+                    #print ("Device {0} movement illegal.".format(devID))
                     break
                 else:
                     moveX = moveX+1
@@ -269,7 +270,7 @@ class trafficSimulator():
                         break
             elif s==3:
                 if len(self.simulatorMap[moveX][moveY-1].getRoadDirecs())==0:
-                    print ("Device {0} movement illegal.".format(devID))
+                    #print ("Device {0} movement illegal.".format(devID))
                     break
                 else:
                     moveY = moveY-1
@@ -281,11 +282,12 @@ class trafficSimulator():
                             self.crashDevice(ids)
                         break
             else:
-                print ("Illegal movement")
+                #print ("Illegal movement")
                 break
         if moveX==device.getDestPosX() and moveY==device.getDestPosY():
             device.dealArrive()
             print ("Device {0} has arrived.".format(devID))
+            print ("")
         else:
             self.simulatorMap[moveX][moveY].addCarID(devID)
             self.tempStatusList.append(carstatus(devID,moveX,moveY))
@@ -297,14 +299,14 @@ class trafficSimulator():
         self.createCars()
         print("Starting simulation")
         asyncio.get_event_loop().call_later(self.sleepInterval, self.cycle)
-        
+
     def cycle(self):
         if self.currentCycle<self.maxCycle:
             self.printMap()
 
             self.clearDeviceOnMap()
             if self.currentCycle==2:
-                self.simulatorMap[6][2].clearRoadDirecs()
+                self.simulatorMap[9][5].clearRoadDirecs()
             #self.deviceStatusList is for this cycle
             #send GPS message here
             self.simuGPSServer.setGPSCycle(self.currentCycle)

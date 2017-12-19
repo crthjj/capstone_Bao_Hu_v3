@@ -2,7 +2,7 @@
 import json
 from Map import point
 from Map import carstatus,carmovement
-from GPS import GPSListener,GPSMessage, GPSNetworkMessage, GPSListener 
+from GPS import GPSListener,GPSMessage, GPSNetworkMessage, GPSListener
 from copy import deepcopy
 
 import playground, asyncio
@@ -100,8 +100,8 @@ class Car(trafficDevice):
                 return
             self.__carPath.insert(0,str(pathx)+','+str(pathy))
         self.__carPath.append(str(self.__destPosX)+','+str(self.__destPosY))
-        print("Car",self.getDeviceID()," path:")
-        print(self.__carPath)
+        #print("Car",self.getDeviceID()," path:")
+        #print(self.__carPath)
 
     def __dfs(self,x,y,dist):
         #print ("current node:",x,",",y)
@@ -242,7 +242,7 @@ class Car(trafficDevice):
             if self.__myMap[aheadPosX][aheadPosY].getLightID()!=-1:
                 posOfLightAhead.append(i)
                 idOfLightAhead.append(self.__myMap[aheadPosX][aheadPosY].getLightID())
-            if len(self.__myMap[aheadPosX][aheadPosY].getCarIDs())==1:
+            if len(self.__myMap[aheadPosX][aheadPosY].getCarIDs())>0:
                 posOfCarAhead.append(i)
 
         if len(posOfLightAhead)==0:
@@ -501,7 +501,7 @@ class Badcar(trafficDevice):
 #^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^66
 class GPSCar(trafficDevice):
 
-    def __init__(self,x,y,devid,maxv,destx,desty,trafficmap):
+    def __init__(self,x,y,devid,maxv,destx,desty,trafficmap,cs):
         trafficDevice.__init__(self,x,y,devid)
         self.__maxVelocity = maxv
         self.__velocity = 0
@@ -518,9 +518,10 @@ class GPSCar(trafficDevice):
         self.__ifCrash = 0
         self.__ifDestReachable = 1
         self.__networkType = "GPS"
-        
-        self.__gpsReceiver = GPSListener()
-        print("Creating playground server fro device ID {}".format(devid))
+        self.__checkGPSSignature = cs
+
+        self.__gpsReceiver = GPSListener(self.__checkGPSSignature)
+        #print("Creating playground server fro device ID {}".format(devid))
         coro = playground.getConnector().create_playground_server(lambda: self.__gpsReceiver, host="255.255.255.255", sourcePort=100+devid)
         asyncio.get_event_loop().create_task(coro)
         #self.__carGPSListener = GPSListener()
@@ -535,6 +536,7 @@ class GPSCar(trafficDevice):
         if dist[self.__destPosX][self.__destPosY]==-1:
             self.__ifDestReachable = 0
             print ("Car {0}:No path available to destination.".format(self.getDeviceID()))
+            print ("")
             return
         else:
             self.__ifDestReachable = 1
@@ -556,8 +558,8 @@ class GPSCar(trafficDevice):
                 return
             self.__carPath.insert(0,str(pathx)+','+str(pathy))
         self.__carPath.append(str(self.__destPosX)+','+str(self.__destPosY))
-        print("Car",self.getDeviceID()," path:")
-        print(self.__carPath)
+        #print("Car",self.getDeviceID()," path:")
+        #print(self.__carPath)
 
     def __dfs(self,x,y,dist):
         #print ("current node:",x,",",y)
@@ -588,7 +590,7 @@ class GPSCar(trafficDevice):
                 #print ("dist_",nextx,",",nexty," is ",dist[nextx][nexty])
                 self.__dfs(nextx,nexty,dist)
     def __recalculatePath(self):
-        print ("Device {0} is recalculating path".format(self.getDeviceID()))
+        #print ("Device {0} is recalculating path".format(self.getDeviceID()))
         self.__curPosInPath = 0
         self.__carPath.clear()
         self.__findCarPath()
@@ -640,9 +642,9 @@ class GPSCar(trafficDevice):
         #newMsg = simulatorIns.feedGPSMessage(self.getDeviceID())
         #self.__carGPSListener.receiveGPSMessageTest(newMsg,self.__curCycle)
         if len(self.__gpsReceiver.GPSMsgQueue)>0:
-            print("Car {} has a GPS message!".format(self.getDeviceID()))
+            #print("Car {} has a GPS message!".format(self.getDeviceID()))
             self.dealGPSMessage()
-        
+
 
         if len(self.__carPath)==0:
             return carmovement(self.getDeviceID(),[])
@@ -678,7 +680,7 @@ class GPSCar(trafficDevice):
     def dealArrive(self):
         self.__arriveDest = 1
     def dealGPSMessage(self):
-        print ("car {0} dealing GPSMSG".format(self.getDeviceID()))
+        #print ("car {0} dealing GPSMSG".format(self.getDeviceID()))
         _gpsmsg = self.__gpsReceiver.GPSMsgQueue[-1]#self.__carGPSListener.GPSMsgQueue[0]
         self.__gpsReceiver.GPSMsgQueue = []
         _gpsmap = _gpsmsg.GPSMessageMap
@@ -689,7 +691,7 @@ class GPSCar(trafficDevice):
             _X = (int)(_cordinateStr[0:_posOfComma])
             _Y = (int)(_cordinateStr[_posOfComma+1:len(_cordinateStr)])
             if self.__myMap[_X][_Y].getRoadDirecNum()!= len(_gpsmap[_X][_Y]):
-                print ("Map change")
+                #print ("Map change")
                 ismapchange = True
                 break
         if True:#if ismapchange==True:
@@ -735,7 +737,7 @@ class GPSCar(trafficDevice):
             if self.__myMap[aheadPosX][aheadPosY].getLightID()!=-1:
                 posOfLightAhead.append(i)
                 idOfLightAhead.append(self.__myMap[aheadPosX][aheadPosY].getLightID())
-            if len(self.__myMap[aheadPosX][aheadPosY].getCarIDs())==1:
+            if len(self.__myMap[aheadPosX][aheadPosY].getCarIDs())>0:
                 posOfCarAhead.append(i)
 
         if len(posOfLightAhead)==0:

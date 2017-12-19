@@ -4,7 +4,7 @@ from Map import point
 from trafficSimulator import trafficSimulator
 import os, asyncio
 
-mapsize = 31
+mapsize = 25
 maxcycle = 50
 sleepinterval = 2
 '''

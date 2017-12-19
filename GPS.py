@@ -26,21 +26,26 @@ class GPSMessage():
         self.signature = ""
 
 class GPSListener(asyncio.Protocol):
-    def __init__(self):
+    def __init__(self,cs):
         print("Create GPSListener")
         self.unpacker = GPSNetworkMessage.Deserializer()
         self.GPSMsgQueue = []
+        self.ifCheckSig = cs
     def connection_made(self, transport):
         print("{} Listener connected tp {}".format(transport.get_extra_info("hostname"), transport.get_extra_info("peername")))
         self.transport=transport
     def data_received(self, data):
         self.unpacker.update(data)
         for packet in self.unpacker.nextPackets():
+            if self.ifCheckSig==0:
+                m = GPSMessage(packet.Timestamp, packet.Map)
+                self.GPSMsgQueue.append(m)
+                continue
             sig = packet.Signature
             packet.Signature = b""
             checkSig = hashlib.sha256(packet.__serialize__()+SHARED_KEY).digest()
             if sig != checkSig:
-                print ("No Signature match. Ignoring")
+                #print ("No Signature match. Ignoring")
                 continue
             m = GPSMessage(packet.Timestamp, packet.Map)
             self.GPSMsgQueue.append(m)
@@ -49,7 +54,7 @@ class GPSListener(asyncio.Protocol):
         if m.GPSMessageCycle!=c:
             return
         else:
-            print ("receive one msg")
+            #print ("receive one msg")
             self.GPSMsgQueue.append(m)
 
 class GPSSender(asyncio.Protocol):
@@ -97,7 +102,7 @@ class GPSServer():
         for carId in self.__GPSCarList:
             if not carId in self.__gpsSubscribers:
                 continue
-            print("send gps message to car ID {}".format(carId))
+            #print("send gps message to car ID {}".format(carId))
             self.__gpsSubscribers[carId].sendGpsMessage(gpsMessage, doSig=True)
             self.__gpsSubscribers[carId].sendGpsMessage(badGpsMessage, doSig=False)
     def getGPSCarlist(self):
